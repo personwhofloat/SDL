@@ -1,14 +1,16 @@
 import argparse
-from util import get_img, render
+from helper.util import get_img, render
 from PIL import Image, ImageFont, ImageEnhance
+from multiprocessing import Pool
+
 import numpy as np
 import time
 import matplotlib.pyplot as plt
 import os
 import json
 from tqdm import tqdm
-from tbd import info, error
-from config import Config
+from helper.tbd import info, error
+from helper.config import Config
 import datetime
 import sys
 import cv2
@@ -17,13 +19,13 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 def main(args):
     total_time = 0
     for idx, im in enumerate(range(args.resume_from, args.resume_from+args.repeat)):
-        args.text_color = (*np.random.randint(0,80,3).tolist(), np.random.randint(160,255))
+        args.text_color = (*np.random.randint(0,80,3).tolist(), np.random.randint(200,255))
         args.col_spacing = np.random.randint(*args.col_spacing_)
         t = time.time()
         img = get_img(args.bg_img)
         img = cv2.GaussianBlur(np.array(img),(5,5),cv2.BORDER_DEFAULT)
         img = Image.fromarray(img)
-        img = img.resize((1500, 2000))
+        img = img.resize((args.img_width,args.img_height))
         out_img, para = render(args, img)
         ps = para['para']
         paras = []
@@ -43,19 +45,22 @@ def main(args):
         mask = Image.fromarray(np.array(out_img)[:, :, 3])
 
         out_img = Image.composite(img2, img, mask)
-
+        
+        contrast = ImageEnhance.Contrast(out_img)
+        out_img = contrast.enhance(0.8+0.3*np.random.rand())
         enhancer = ImageEnhance.Brightness(out_img)
-        out_img = enhancer.enhance((3.25+np.random.rand())/4)
+        out_img = enhancer.enhance(0.9+0.3*np.random.rand())
+        
 
         out_img.save(
             os.path.join(args.output, 'images', f'{im}.png'))
         total_time += (time.time() - t)
-        if (idx - args.resume_from + 1) % args.print_freq == 0:
-            avg_time = total_time / (idx - args.resume_from + 1)
+        if (idx + 1) % args.print_freq == 0:
+            avg_time = total_time / (idx + 1)
             eta = avg_time * args.repeat - total_time
             eta = str(datetime.timedelta(seconds=round(eta)))
             ttime = str(datetime.timedelta(seconds=round(total_time)))
-            info(f"Generated {idx-args.resume_from+1}/{args.repeat}: average time: {avg_time:.2f}s eta: {ttime}/{eta}")
+            info(f"Generated {(idx+args.resume_from+1)%args.repeat}/{args.repeat+args.resume_from}: average time: {avg_time:.2f}s eta: {ttime}/{eta}")
 
 def format_range(a_range, name):
     if type(a_range) != str:
@@ -76,8 +81,8 @@ def format_range(a_range, name):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config_file', default= 'page.yaml',type=str)
-    parser.add_argument('-bg','--bg_img', default='assets', type=str)
+    parser.add_argument('-c', '--config_file', default= 'configs/page.yaml',type=str)
+    parser.add_argument('-bg','--bg_img', default='assets/bg', type=str)
     parser.add_argument('--doc_images',default=r'C:\Users\sonnt72\Downloads\bg_img', type=str, help='path to images appearing in the document')
     parser.add_argument('--font_path', default='Unicode', type=str)
     parser.add_argument('--output', default='output', type=str)
@@ -102,18 +107,24 @@ if __name__ == '__main__':
     parser.add_argument('--max_line', default=62, type=int)
     parser.add_argument('--col_spacing', default='40-50', type=str)
     parser.add_argument('--tab_at_start', action='store_true')
-    parser.add_argument('--prob_image', default=0.15,type=float, help='Probability for an image to appear in the document')
+    parser.add_argument('--prob_image', default=0.1,type=float, help='Probability for an image to appear in the document')
+    parser.add_argument('--prob_table', default=0.1,type=float, help='Probability for a table to appear in the document')
+    
     parser.add_argument('--blur',action='store_true')
     args_ = parser.parse_args()
-    args = Config()
-    args.merge_from_args(args_)
-    args.merge_from_file(args_.config_file)
-    
-    args.words = [word.strip() for word in open(
-        args.words, 'r', encoding='utf-8').readlines()]
-    
-    args.fontsize = format_range(args.fontsize, "fontsize")
-    args.col_range = format_range(args.col_range, "col_range")
-    args.col_spacing_ = format_range(args.col_spacing,'col_spacing')
-    
-    main(args)
+    argss = [Config(),Config(),Config(),Config(),Config(),Config(),Config(),Config()]
+    for i, args in enumerate(argss):
+        args.merge_from_args(args_)
+        args.merge_from_file(args_.config_file)
+        
+        args.words = [word.strip() for word in open(
+            args.words, 'r', encoding='utf-8').readlines()]
+        
+        args.fontsize = format_range(args.fontsize, "fontsize")
+        args.col_range = format_range(args.col_range, "col_range")
+        args.col_spacing_ = format_range(args.col_spacing,'col_spacing')
+        args.resume_from = i*5
+    argss[-1].print_freq = 1
+    pool = Pool(processes=8)
+    pool.map(main, argss) 
+    # main(args)

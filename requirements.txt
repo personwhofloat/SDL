@@ -2,3 +2,6 @@ opencv-python
 numpy
 matplotlib
 Pillow >= 8.0
+tqdm
+coloredlogs
+pyyaml
