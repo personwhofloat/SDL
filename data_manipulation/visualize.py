@@ -29,8 +29,8 @@ colors = [(0,255,0,64),(255,0,0,64),(0,0,255,64),(0,255,255,64),
 font=ImageFont.truetype('assets/fonts/regular/arial.ttf',30)
 # colors = ['green','red','pink','orange','blue','yellow','black']
 def to_xml(fname: str):
-    f = json.load(open(f'/home/vinbdi/son97/layout/output/jsons/{fname}.json', 'r'))
-    im = Image.open(f'/home/vinbdi/son97/layout/output/images/{fname}.jpg')
+    f = json.load(open(f'.//output/jsons/{fname}.json', 'r'))
+    im = Image.open(f'.//output/images/{fname}.jpg')
     label = ET.Element('label')
     img_info = ET.SubElement(label, 'info')
 
@@ -185,13 +185,13 @@ def to_xml(fname: str):
                             char_.set('x2', str(c[2]))
                             char_.set('y2', str(c[3]))
     return label
-for i in np.random.randint(10000,352000,5):
+for i in [0]:
     root = to_xml(str(i))
     info = root.findall('.//info')[0]
     w,h = info.attrib['width'],info.attrib['height']
     img = np.zeros((int(h),int(w),4),dtype='uint8')
     img = Image.fromarray(img)
-    img2 = Image.open(f'/home/vinbdi/son97/layout/output/images/{i}.jpg')#f'output/images/{i}.png').convert('RGBA')
+    img2 = Image.open(f'.//output/images/{i}.jpg')#f'output/images/{i}.png').convert('RGBA')
     draw = ImageDraw.Draw(img)
     imgs.append(img2.resize((1500,2000)))
     for comp in compz:

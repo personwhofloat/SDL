@@ -1,23 +1,25 @@
 import cv2
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont, ImageEnhance
-from helper.font_handler import get_font, get_font_size
+from PIL import Image, ImageDraw, ImageFont
+from helper.font_handler import get_font
 import os
 import math
 import sys 
-from helper.tbd import error,info
+from helper.tbd import error
+
+
 def get_img(path,threshold=1.0):
     if not os.path.exists(path):
         error(f"Path {path} does not exist")
         sys.exit(1)
-    imgs = [os.path.join(path, img) for img in os.listdir(path)]
-    i = np.random.randint(0, len(imgs))
-    r = np.random.rand() 
+    imgs            = [os.path.join(path, img) for img in os.listdir(path)]
+    i               = np.random.randint(0, len(imgs))
+    r               = np.random.rand() 
     if r < threshold:
         try:
-            img = Image.open(imgs[i])
-            h,w = img.size
-            if h*w == 0:
+            img     = Image.open(imgs[i])
+            h,w     = img.size
+            if h == 0 or w == 0: #check if either size is zero
                 os.remove(imgs[i])
                 return get_img(path, threshold)
         except:
@@ -25,7 +27,7 @@ def get_img(path,threshold=1.0):
             return get_img(path, threshold)
 
     else:
-        img = Image.fromarray(np.random.randint(128,255,(1500,2000,3),dtype='uint8'))
+        img         = Image.fromarray(np.random.randint(128,255,(1500,2000,3),dtype='uint8'))
     return img
 
 
@@ -35,12 +37,13 @@ def get_word(dictionary):
     dictionary: a list of words that we're gonna choose from
     output: a random word
     '''
-    word = dictionary[np.random.randint(len(dictionary))]
-    connectors = ['','—','-',':',';',',','?','!']
-    connector = np.random.choice(connectors,p=(0.75,0.04,0.03,0.01,0.1,0.03,0.02,0.02))
+    word            = dictionary[np.random.randint(len(dictionary))]
+    connectors      = ['','—','-',':',';',',','?','!']
+    connector       = np.random.choice(connectors,p=(0.75,0.04,0.03,0.01,0.1,0.03,0.02,0.02))
     return word + connector
 
-def render_text_line(args, img, xy, max_width, font, text_type='text', starting=False, ending=False, in_table=False, title=False):
+def render_text_line(args, img, xy, max_width, font, text_type='text', 
+                     starting=False, ending=False, in_table=False, title=False):
     '''
     this function is for generating text line on an image
     input:
@@ -54,75 +57,85 @@ def render_text_line(args, img, xy, max_width, font, text_type='text', starting=
         out_img: a RGBA image having all text generated
         data: a dictionary containing all the information of the paragraph (i.e.: coordinate of it and texts inside it)
     '''
-    text = []
-    text_joint = ''
-    out_img = img.copy()
-    start = True
-    prefixes = ['A','B','C','D','I','II','III','IV',1,2,3,4,5,6]
+    text                    = []
+    text_joint              = ''
+    out_img                 = img.copy()
+    start                   = True
+    prefixes                = ['A','B','C','D','I','II','III','IV',1,2,3,4,5,6]
     '''
     if text_type is number: we return a number that ends with 000. else we return the textline
     '''
     if text_type == 'number':
         if np.random.rand() > 0.2:
-            len_number = min(3*max_width // font.getsize('Okz,')[0],9)
-            word = str(np.random.randint(1, 10**(len_number)))
-            res = '' 
+    
+            len_number      = min(3*max_width // font.getsize('Okz,')[0],9)
+            word            = str(np.random.randint(1, 10**(len_number)))
+            res             = '' 
             for i in range(0, len(word)):
                 if (i-len(word)) % 3 == 2:
-                    res += word[i]+','
+                    res    += word[i]+','
                 else:
-                    res += word[i]
-            word = res[:-1]
+                    res    += word[i]
+            word            = res[:-1]
+    
         else:
-            word = ''
-        text_joint = word
-        text = [word]
+            word            = '' # occasionally omit some cell's value
+        
+        text_joint          = word
+        text                = [word]
+    
     elif text_type == 'text':
-        upper = np.random.rand() < 0.3
+        upper               = np.random.rand() < 0.3
         while True:
-            word = get_word(args.words)
+            word            = get_word(args.words)
             if title and upper:
-                word = word.upper()
+                word        = word.upper()
             # randomly place end-of-sentence period at points
             if np.random.exponential(args.period_prob) > 2*args.period_prob:
-                word += '.'
+                word        += '.'
 
             if start and (starting or title):
-                word = word.capitalize()
+                word         = word.capitalize()
             if start and starting and title and np.random.rand() < 0.8:
-                prefix = str(np.random.choice(prefixes))
+                prefix       = str(np.random.choice(prefixes))
                 if np.random.rand() < 0.3:
-                    prefix += '.' + str(np.random.randint(1,5))
-                word = f'{prefix}. '+ word
+                    prefix  += '.' + str(np.random.randint(1,5))
+                word         = f'{prefix}. '+ word
             text.append(word)
             if len(text_joint) > 0:
-                text_joint += ' '+word
+                text_joint  += ' '+word
             else:
-                text_joint += word
-            w, _ = font.getsize(text_joint)
+                text_joint  += word
+            current_width, _ = font.getsize(text_joint)
             # cut the text when its length exceeds a given value
-            if w > max_width: 
-                exceeded = min(
-                    max(int((w-max_width)/w*len(text_joint)), 1), len(text[-1]))+2
-                text_joint = text_joint[:-exceeded].strip()
-                text[-1] = text[-1][:-exceeded]
+            if current_width > max_width: 
+                
+                exceeded    = 2 + min(max(
+                                    int((current_width-max_width)
+                                    /current_width*len(text_joint)), 1
+                                    ), len(text[-1])
+                                )
+                text_joint  = text_joint[:-exceeded].strip()
+                text[-1]    = text[-1][:-exceeded]
                 if len(text[-1]) == 0:
-                    text = text[:-1]
-                w, _ = font.getsize(text_joint)
-                under_fit = (max_width - w)//font.getsize('.')[0]
-                text = text_joint.split(' ')
+                    text    = text[:-1]
+                
+                current_width, _    = font.getsize(text_joint) #current width
+                _under_fit          = (max_width - current_width)//font.getsize('.')[0]
+                text                = text_joint.split(' ')
                 if not in_table:
-                    if under_fit > 0:
-                        indexes = np.random.randint(0,max(1,len(text)-1),under_fit)
+                    if _under_fit > 0:
+                        indexes     = np.random.randint(0,max(1,len(text)-1),_under_fit)
                         for i in indexes:
-                            text[i] += ' '#np.random.choice(['i','r','.','l',':',';','I','!'])
-                        text_joint = ' '.join(text)
+                            text[i] += ' '
+                        text_joint  = ' '.join(text)
                     if font.getsize(text_joint)[0] > max_width:
-                        text[-1] = text[-1][:-1]
-                        text_joint = ' '.join(text)
+                        text[-1]    = text[-1][:-1]
+                        text_joint  = ' '.join(text)
                         break   
                 break
-            # we would end the line with a period. only happen at the last sentence of the parapgraph
+            # we would end the line with a period. 
+            # only happen at the last sentence of the paragraph
             if ending: 
                 text_joint += '.'
                 break
@@ -176,7 +189,8 @@ def render_paragraph(args, img, xy, font, fontsize, num_line,spacing, width=None
     render a paragraph
     input:
         img: the background image, type: PIL Image
-        xy: the left top coordinate of the paragraph where are gonna paste the paragraph in. (float, float)
+        xy: the left top coordinate of the paragraph where are gonna paste the paragraph in. 
+            (float, float)
         font: font we're gonna render the text
         fontsize: size of text in pixel
         num_line: number of lines that the paragraph has
@@ -185,9 +199,9 @@ def render_paragraph(args, img, xy, font, fontsize, num_line,spacing, width=None
     if width is None:
         width = args.para_width
     out_img = img.copy()
-    lines = [] # list of dictionary, each dictionary contains information of a line in the paragraph. 
-    word_bboxes = [] # list of numpy array, each represent coordinate of a word in (x1,y1,x2,y2) manner.
-    texts = [] # list of text appearing in the paragraph.
+    lines = [] 
+    word_bboxes = []
+    texts = []
 
     if tab_at_start:
         out_img, line = render_text_line(
@@ -486,8 +500,7 @@ def render_formula(args, img, bbox, font, font_title, fontsize):
     fg_img_trans = Image.new("RGBA",out_img.size)
     fg_img_trans.paste(formula,(x,y), mask=formula.convert("RGBA"))
     out_img = Image.blend(out_img,fg_img_trans,1.0)
-    #out_img[y:y+h,x:x+w] += (formula).astype('uint8')
-    #out_img = Image.fromarray(out_img)
+    
     box = (bbox[0],bbox[1],bbox[2],y-bbox[1]-padding)
     if box[3] > fontsize*1.1:
         img, p, _, _ = fill_text(args, out_img, box, font,font_title,fontsize,render_type='paragraph')
@@ -502,6 +515,9 @@ def render_formula(args, img, bbox, font, font_title, fontsize):
         para.append(p)
     args.tab_at_start = True
     return out_img,para,[],[]
+
+
+
 if __name__ == '__main__':
     from config import Config
     img = get_img('assets').convert("RGBA").resize((1500,2000))
