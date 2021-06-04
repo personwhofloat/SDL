@@ -5,4 +5,4 @@ SDL is the project that synthesizes document images. It facilitates multiple-lev
 ![image](assets/illustration/see.gif)
 
 Structure of data:
-![structure](assets/illustration/structure.jpg)
+![structure](assets/illustration/structure.png)
