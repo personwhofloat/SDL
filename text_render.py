@@ -102,7 +102,7 @@ def render_text_line(args, img, xy, max_width, font, text_type='text',
                     prefix  += '.' + str(np.random.randint(1,5))
                 word         = f'{prefix}. '+ word
             text.append(word)
-            if len(text_joint) > 0:
+            if len(text_joint) > 0 and args.space_between:
                 text_joint  += ' '+word
             else:
                 text_joint  += word
@@ -121,17 +121,21 @@ def render_text_line(args, img, xy, max_width, font, text_type='text',
                     text    = text[:-1]
                 
                 current_width, _    = font.getsize(text_joint) #current width
-                _under_fit          = (max_width - current_width)//font.getsize('.')[0]
-                text                = text_joint.split(' ')
+                _under_fit          = (max_width - current_width)//font.getsize(' ')[0]
+                #text                = text_joint.split(' ')
                 if not in_table:
                     if _under_fit > 0:
                         indexes     = np.random.randint(0,max(1,len(text)-1),_under_fit)
                         for i in indexes:
                             text[i] += ' '
-                        text_joint  = ' '.join(text)
+                        if args.space_between:
+                            text_joint   = ' '.join(text)
+                        else: text_joint = ''.join(text)
                     if font.getsize(text_joint)[0] > max_width:
                         text[-1]    = text[-1][:-1]
-                        text_joint  = ' '.join(text)
+                        if args.space_between:
+                            text_joint   = ' '.join(text)
+                        else: text_joint = ''.join(text)
                         break   
                 break
             # we would end the line with a period. 
@@ -152,18 +156,21 @@ def render_text_line(args, img, xy, max_width, font, text_type='text',
     x0, y0 = xy
     words = []
     pad = draw.textlength(' ', font=font)
-    for i, w in enumerate(text_joint.split(' ')):
+    for i, w in enumerate(text):
         if w == '': 
             x0 += pad
             continue
-        wbox = draw.textbbox((x0, y0), w, font=font)
+        wbox = draw.textbbox((x0, y0), w.strip(), font=font)
         word = {'bbox': [int(wd) for wd in wbox], 'text': w, 'cbox':[]}
         x1 = x0
         for c in w:
             word['cbox'].append([int(cd) for cd in draw.textbbox((x1,y0),c,font=font)])
             x1 += draw.textlength(c, font=font)
         words.append(word)
-        x0 += draw.textlength(w+' ', font=font)
+        if args.space_between:
+            x0 += draw.textlength(w+' ', font=font)
+        else:
+            x0 += draw.textlength(w, font=font)
     if args.vis_line:
         draw.rectangle(draw.textbbox(xy, text_joint, font=font),
                        fill=None, outline='yellow', width=1)
@@ -296,6 +303,11 @@ def fill_text(args, img, bbox, font, font_title, fontsize, text_type = 'text', i
     # format output data
     if not in_table:
         para = para['lines']
+        boxes= np.array([line['bbox'] for line in para])
+        bbox[0] = np.min(boxes[:,0])
+        bbox[2] = np.max(boxes[:,2])-bbox[0]
+        # print(boxes.shape)
+        # assert False
         para = {'component':'paragraph', 'lines': para, 'bbox':(int(bbox[0]), int(bbox[1]), int(bbox[0])+math.ceil(bbox[2]),
                         int(bbox[1])+math.ceil(bbox[3]))}
     else:

@@ -201,13 +201,14 @@ for i in [0]:
             attr = word.attrib
             x1,y1,x2,y2 = attr['x1'],attr['y1'],attr['x2'],attr['y2']
             x1,y1,x2,y2 = int(float(x1)),int(float(y1)),int(float(x2)),int(float(y2))
-            draw.rectangle((x1,y1,x2,y2),fill=colors[comp_id], outline=colors[comp_id])
+            draw.rectangle((x1,y1,x2,y2),fill=colors[comp_id], outline=(0,0,0),width=1)
             if len(compz) > 1:
                 draw.rectangle(draw.textbbox((x1,y1),comp,font=font),fill=(0,0,0,170))
                 draw.text((x1,y1),comp,fill='white',width=1, font=font)
             
     img = Image.composite(img,img2,Image.fromarray(np.array(img)[:,:,3]))
     img = img.resize((1500,2000))
+    img.save(sys.argv[1]+".jpg")
     imgs.append(img)
 img, *imgs = [im for im in imgs]
 img.save(fp="assets/illustration/see.gif", format='GIF', append_images=imgs,

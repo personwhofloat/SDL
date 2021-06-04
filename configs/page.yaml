@@ -1,7 +1,7 @@
 fontsize: '28-31'
-fontsize_set: [28, 29, 30, 31, 32, 34, 33, 44, 48, 52]
-font_path: 'assets/vnm_fonts'
-words: 'assets/corpus/test.txt'
+fontsize_set: [28, 29, 30, 31, 32, 34, 33] #, 44, 48, 52]
+font_path: 'assets/jpn_fonts'
+words: 'assets/corpus/japanese.txt'
 period_prob: 0.15
 prob_image: 0.3
 prob_table: 0.15
@@ -9,6 +9,7 @@ bg_img: 'assets/bg'
 img_height: 2000
 img_width: 1500
 col_spacing: '40-50'
+space_between: False
 
 background_path: 'assets/bg'
 plot_path: 'assets/all_plot'
@@ -17,7 +18,7 @@ type: 'page'
 col_range: '1-3'
 
 col_spacing: '35-50'
-spacing: 0.15
+spacing: 0.2
 visible_column_prob: 0.4
 
 tab_at_start: True

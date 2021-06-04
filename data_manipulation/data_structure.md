@@ -1,7 +1,5 @@
 ```
-document
-│   README.md
-│   file001.txt    
+document    
 │
 └───paragraph
 │   │   bbox: (x1,y1,x2,y2)
