@@ -4,5 +4,10 @@ SDL is the project that synthesizes document images. It facilitates multiple-lev
 
 ![image](assets/illustration/see.gif)
 
-Structure of data:
+### Structure of data:
 ![structure](assets/illustration/structure.png)
+
+### Instruction to run data generation: [instruction](instruction.md)
+### Vietnamese 300000 images link: Release soon
+
+### Paper: Release soon

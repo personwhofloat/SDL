@@ -1,4 +1,4 @@
-from text_render import fill_text, get_img
+from helper.text_render import fill_text, get_img
 from helper.config import Config
 from helper.font_handler import get_font, get_font_size
 from helper.tbd import info
@@ -8,7 +8,8 @@ from PIL import Image, ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 import numpy as np
 import json
-import time
+import time,os
+
 cnames = ['paragraph', 'table', 'figure', 'title', 'all', 'all']
 
 def get_boxes(height, width, left, top, \
@@ -93,6 +94,7 @@ def render_from_layout(args, bboxes, im_height, im_width):
     return final_image, para
 
 def main(args):
+    np.random.seed(int.from_bytes(os.urandom(4), byteorder='little')) 
     total_time = 0
     for idx, im_name in enumerate(range(args.resume_from, args.resume_from+args.repeat)):
         t                      = time.time()
@@ -139,7 +141,7 @@ if __name__ == '__main__':
                                 word.strip() for word in 
                                 open(args.words, 'r', encoding='utf-8').readlines()
                             ]
-        args.text_color     = (*np.random.randint(0, 80, 3).tolist()
+        args.text_color     = (np.random.randint(0, 80),np.random.randint(0, 80),np.random.randint(0, 80)
                                 ,np.random.randint(200, 255))
         args.col_spacing    = np.random.randint(40, 50)
         args.resume_from    = i*args.repeat

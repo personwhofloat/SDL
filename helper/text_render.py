@@ -1,23 +1,25 @@
 import cv2
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont, ImageEnhance
-from .font_handler import get_font, get_font_size
+from PIL import Image, ImageDraw, ImageFont
+from helper.font_handler import get_font
 import os
 import math
 import sys 
-from .tbd import error,info
+from helper.tbd import error
+
+
 def get_img(path,threshold=1.0):
     if not os.path.exists(path):
         error(f"Path {path} does not exist")
         sys.exit(1)
-    imgs = [os.path.join(path, img) for img in os.listdir(path)]
-    i = np.random.randint(0, len(imgs))
-    r = np.random.rand() 
+    imgs            = [os.path.join(path, img) for img in os.listdir(path)]
+    i               = np.random.randint(0, len(imgs))
+    r               = np.random.rand() 
     if r < threshold:
         try:
-            img = Image.open(imgs[i])
-            h,w = img.size
-            if h*w == 0:
+            img     = Image.open(imgs[i])
+            h,w     = img.size
+            if h == 0 or w == 0: #check if either size is zero
                 os.remove(imgs[i])
                 return get_img(path, threshold)
         except:
@@ -25,22 +27,23 @@ def get_img(path,threshold=1.0):
             return get_img(path, threshold)
 
     else:
-        img = Image.fromarray(np.random.randint(128,255,(1500,2000,3),dtype='uint8'))
+        img         = Image.fromarray(np.random.randint(128,255,(1500,2000,3),dtype='uint8'))
     return img
 
 
 def get_word(dictionary):
     '''
-    returns a random word from the dictionary file
+    returns a np.random word from the dictionary file
     dictionary: a list of words that we're gonna choose from
-    output: a random word
+    output: a np.random word
     '''
-    word = dictionary[np.random.randint(len(dictionary))]
-    connectors = ['','—','-',':',';',',','?','!']
-    connector = np.random.choice(connectors,p=(0.75,0.04,0.03,0.01,0.1,0.03,0.02,0.02))
+    word            = dictionary[np.random.randint(len(dictionary))]
+    connectors      = ['','—','-',':',';',',','?','!']
+    connector       = np.random.choice(connectors,p=(0.75,0.04,0.03,0.01,0.1,0.03,0.02,0.02))
     return word + connector
 
-def render_text_line(args, img, xy, max_width, font, text_type='text', starting=False, ending=False, in_table=False, title=False):
+def render_text_line(args, img, xy, max_width, font, text_type='text', 
+                     starting=False, ending=False, in_table=False, title=False):
     '''
     this function is for generating text line on an image
     input:
@@ -54,72 +57,90 @@ def render_text_line(args, img, xy, max_width, font, text_type='text', starting=
         out_img: a RGBA image having all text generated
         data: a dictionary containing all the information of the paragraph (i.e.: coordinate of it and texts inside it)
     '''
-    text = []
-    text_joint = ''
-    out_img = img.copy()
-    start = True
-    prefixes = ['A','B','C','D','I','II','III','IV',1,2,3,4,5,6]
+    text                    = []
+    text_joint              = ''
+    out_img                 = img.copy()
+    start                   = True
+    prefixes                = ['A','B','C','D','I','II','III','IV',1,2,3,4,5,6]
     '''
     if text_type is number: we return a number that ends with 000. else we return the textline
     '''
     if text_type == 'number':
         if np.random.rand() > 0.2:
-            len_number = min(3*max_width // font.getsize('222,')[0],9)
-            word = str(np.random.randint(1, 10**(len_number)))
-            res = '' 
+    
+            len_number      = min(3*max_width // font.getsize('Okz,')[0],9)
+            word            = str(np.random.randint(1, 10**(len_number)))
+            res             = '' 
             for i in range(0, len(word)):
                 if (i-len(word)) % 3 == 2:
-                    res += word[i]+','
+                    res    += word[i]+','
                 else:
-                    res += word[i]
-            word = res[:-1]
+                    res    += word[i]
+            word            = res[:-1]
+    
         else:
-            word = ''
-        text_joint = word
-        text = [word]
+            word            = '' # occasionally omit some cell's value
+        
+        text_joint          = word
+        text                = [word]
+    
     elif text_type == 'text':
+        upper               = np.random.rand() < 0.3
         while True:
-            word = get_word(args.words)
+            word            = get_word(args.words)
+            if title and upper:
+                word        = word.upper()
             # randomly place end-of-sentence period at points
             if np.random.exponential(args.period_prob) > 2*args.period_prob:
-                word += '.'
+                word        += '.'
 
             if start and (starting or title):
-                word = word.capitalize()
-            if start and starting and title and np.random.rand() < 0.6:
-                prefix = str(np.random.choice(prefixes))
+                word         = word.capitalize()
+            if start and starting and title and np.random.rand() < 0.8:
+                prefix       = str(np.random.choice(prefixes))
                 if np.random.rand() < 0.3:
-                    prefix += '.' + str(np.random.randint(1,5))
-                    word = f'{prefix}. '+ word
+                    prefix  += '.' + str(np.random.randint(1,5))
+                word         = f'{prefix}. '+ word
             text.append(word)
-            if len(text_joint) > 0:
-                text_joint += ' '+word
+            if len(text_joint) > 0 and args.space_between:
+                text_joint  += ' '+word
             else:
-                text_joint += word
-            w, _ = font.getsize(text_joint)
+                text_joint  += word
+            current_width, _ = font.getsize(text_joint)
             # cut the text when its length exceeds a given value
-            if w > max_width: 
-                exceeded = min(
-                    max(int((w-max_width)/w*len(text_joint)), 1), len(text[-1]))+2
-                text_joint = text_joint[:-exceeded].strip()
-                text[-1] = text[-1][:-exceeded]
+            if current_width > max_width: 
+                
+                exceeded    = 2 + min(max(
+                                    int((current_width-max_width)
+                                    /current_width*len(text_joint)), 1
+                                    ), len(text[-1])
+                                )
+                text_joint  = text_joint[:-exceeded].strip()
+                text[-1]    = text[-1][:-exceeded]
                 if len(text[-1]) == 0:
-                    text = text[:-1]
-                w, _ = font.getsize(text_joint)
-                under_fit = (max_width - w)//font.getsize('.')[0]
-                text = text_joint.split(' ')
+                    text    = text[:-1]
+                
+                current_width, _    = font.getsize(text_joint) #current width
+                _under_fit          = (max_width - current_width)//font.getsize(' ')[0]
+                if args.space_between:
+                    text                = text_joint.split(' ')
                 if not in_table:
-                    if under_fit > 0:
-                        indexes = np.random.randint(0,len(text),under_fit)
+                    if _under_fit > 0:
+                        indexes     = np.random.randint(0,max(1,len(text)-1),_under_fit)
                         for i in indexes:
-                            text[i] += ' '#np.random.choice(['i','r','.','l',':',';','I','!'])
-                        text_joint = ' '.join(text)
+                            text[i] += ' '
+                        if args.space_between:
+                            text_joint   = ' '.join(text)
+                        else: text_joint = ''.join(text)
                     if font.getsize(text_joint)[0] > max_width:
-                        text[-1] = text[-1][:-1]
-                        text_joint = ' '.join(text)
+                        text[-1]    = text[-1][:-1]
+                        if args.space_between:
+                            text_joint   = ' '.join(text)
+                        else: text_joint = ''.join(text)
                         break   
                 break
-            # we would end the line with a period. only happen at the last sentence of the parapgraph
+            # we would end the line with a period. 
+            # only happen at the last sentence of the paragraph
             if ending: 
                 text_joint += '.'
                 break
@@ -129,27 +150,28 @@ def render_text_line(args, img, xy, max_width, font, text_type='text', starting=
         sys.exit()
     # draw helps write the text down on the image
     draw = ImageDraw.Draw(out_img)
-    if title and np.random.rand() < 0.2:
-        text_joint = text_joint.upper()
-        text = [t.upper() for t in text]
+    
     draw.text(xy, text_joint, fill=args.text_color, font=font)
     line_bbox = draw.textbbox(xy, text_joint, font=font)
     line_bbox = [int(l) for l in line_bbox]  
     x0, y0 = xy
     words = []
     pad = draw.textlength(' ', font=font)
-    for i, w in enumerate(text_joint.split(' ')):
+    for i, w in enumerate(text):
         if w == '': 
             x0 += pad
             continue
-        wbox = draw.textbbox((x0, y0), w, font=font)
+        wbox = draw.textbbox((x0, y0), w.strip(), font=font)
         word = {'bbox': [int(wd) for wd in wbox], 'text': w, 'cbox':[]}
         x1 = x0
         for c in w:
             word['cbox'].append([int(cd) for cd in draw.textbbox((x1,y0),c,font=font)])
             x1 += draw.textlength(c, font=font)
         words.append(word)
-        x0 += draw.textlength(w+' ', font=font)
+        if args.space_between:
+            x0 += draw.textlength(w+' ', font=font)
+        else:
+            x0 += draw.textlength(w, font=font)
     if args.vis_line:
         draw.rectangle(draw.textbbox(xy, text_joint, font=font),
                        fill=None, outline='yellow', width=1)
@@ -166,6 +188,7 @@ def render_text_line(args, img, xy, max_width, font, text_type='text', starting=
                            fill=None, outline='red', width=1)
             x0 += draw.textlength(c, font=font)
     line_data = {'bbox': line_bbox, 'words': words, 'texts': text}
+    
     return out_img, line_data
 
 
@@ -174,7 +197,8 @@ def render_paragraph(args, img, xy, font, fontsize, num_line,spacing, width=None
     render a paragraph
     input:
         img: the background image, type: PIL Image
-        xy: the left top coordinate of the paragraph where are gonna paste the paragraph in. (float, float)
+        xy: the left top coordinate of the paragraph where are gonna paste the paragraph in. 
+            (float, float)
         font: font we're gonna render the text
         fontsize: size of text in pixel
         num_line: number of lines that the paragraph has
@@ -183,16 +207,20 @@ def render_paragraph(args, img, xy, font, fontsize, num_line,spacing, width=None
     if width is None:
         width = args.para_width
     out_img = img.copy()
-    lines = [] # list of dictionary, each dictionary contains information of a line in the paragraph. 
-    word_bboxes = [] # list of numpy array, each represent coordinate of a word in (x1,y1,x2,y2) manner.
-    texts = [] # list of text appearing in the paragraph.
+    lines = [] 
+    word_bboxes = []
+    texts = []
 
     if tab_at_start:
         out_img, line = render_text_line(
             args, out_img, [xy[0]+fontsize, xy[1]], width-fontsize, font, starting=True, in_table=in_table, text_type=text_type,title=title)
+    elif title:
+        out_img, line = render_text_line(
+            args, out_img, [xy[0], xy[1]], width,font, starting=True, in_table=in_table, text_type=text_type,title=title)
     else:
         out_img, line = render_text_line(
             args, out_img, [xy[0], xy[1]], width,font, starting=False, in_table=in_table, text_type=text_type,title=title)
+        
     if len(line['texts']) > 0:
         if line['texts'][0] != '':
             lines.append(line)
@@ -216,7 +244,7 @@ def render_paragraph(args, img, xy, font, fontsize, num_line,spacing, width=None
                 texts.extend(line['texts'])
     
     para = {'lines': lines, 'words': word_bboxes, 'texts': texts}
-
+    
     return out_img, para, word_bboxes, texts
 
 def fill_text(args, img, bbox, font, font_title, fontsize, text_type = 'text', in_table = False, render_type='all', title=False, prob_image=None, prob_table=None):
@@ -224,8 +252,10 @@ def fill_text(args, img, bbox, font, font_title, fontsize, text_type = 'text', i
     fill text into the bounding box
     bbox has form of x,y,w,h where x,y is top left coordinate
     '''
+    if render_type == 'number':
+        text_type = 'number'
     if not in_table and not title:
-        if np.random.rand() < 0.2: font = get_font(args,fontsize,mixed=True)
+        if np.random.rand() < 0.0: font = get_font(args,fontsize,mixed=True)
     if prob_image is None: prob_image = args.prob_image
     if prob_table is None: prob_table = args.prob_table
     if len(bbox) != 4:
@@ -252,6 +282,8 @@ def fill_text(args, img, bbox, font, font_title, fontsize, text_type = 'text', i
     if render_type == 'figure':
         # out_img = np.array(img)
         return render_figure(args,np.array(img),bbox,font,font_title,fontsize)
+    if render_type == 'title':
+        return render_title(args, img, bbox, font, font_title, fontsize, title_only=True)
     # calculating number of line in the paragraph
     # then re-calculate the value of spacing between lines 
     # so that we can fit perfectly the paragraph into the bounding box.
@@ -272,34 +304,41 @@ def fill_text(args, img, bbox, font, font_title, fontsize, text_type = 'text', i
     # format output data
     if not in_table:
         para = para['lines']
+        boxes= np.array([line['bbox'] for line in para])
+        bbox[0] = np.min(boxes[:,0])
+        bbox[2] = np.max(boxes[:,2])-bbox[0]
+        # print(boxes.shape)
+        # assert False
         para = {'component':'paragraph', 'lines': para, 'bbox':(int(bbox[0]), int(bbox[1]), int(bbox[0])+math.ceil(bbox[2]),
                         int(bbox[1])+math.ceil(bbox[3]))}
     else:
         lines = para['lines']
         para = {'lines':lines, 'words': para['words']}
+    
     return out_img, para, words, texts
 
 def render_figure(args,img,bbox,font_text,font_title,fontsize):
     if bbox[3]/bbox[2] < 0.25:
         return render_table(args,Image.fromarray(img),bbox,font_text,font_title,fontsize)
-    if np.random.rand() < 0.5:
-        s_img = get_img(args.background_path,threshold=1.0).convert('RGBA').resize((bbox[2],bbox[3]))
+    if np.random.rand() < 1.0:
+        s_img = get_img(args.background_path,threshold=1.0).resize((bbox[2],bbox[3]))
         para = {'component': 'natural_image', 'bbox':(int(bbox[0]), int(bbox[1]), int(bbox[0])+math.ceil(bbox[2]),int(bbox[1])+math.ceil(bbox[3]))}
     else: 
-        
-        s_img = get_img(args.plot_path,1).convert('RGBA').resize((bbox[2],bbox[3]))
-        enhancer = ImageEnhance.Brightness(s_img)
-        s_img = enhancer.enhance(0.8)
+        s_img = get_img(args.plot_path,1).resize((bbox[2],bbox[3]))
         para = {'component': 'plot', 'bbox':(int(bbox[0]), int(bbox[1]), int(bbox[0])+math.ceil(bbox[2]),int(bbox[1])+math.ceil(bbox[3]))}
-        
-    s_img = np.array(s_img)
-    img[bbox[1]:bbox[1]+bbox[3],bbox[0]:bbox[0]+bbox[2],:] += s_img
+    img = Image.fromarray(img)
+    fg_img_trans = Image.new("RGBA",img.size)
+    fg_img_trans.paste(s_img,(bbox[0],bbox[1]), mask=s_img.convert("RGBA"))
+    img = Image.blend(img,fg_img_trans,1.0)
+    #img.paste(s_img, (bbox[0],bbox[1]))
+    # s_img = np.array(s_img)
+    # img[bbox[1]:bbox[1]+bbox[3],bbox[0]:bbox[0]+bbox[2],:] += s_img
     words = []
     texts = []
-    return Image.fromarray(img), para, words, texts
+    return img, para, words, texts
 
 def render_table(args, img, bbox, font_text, font_title, fontsize, padding=5):
-    out_img = img.convert('RGBA')
+    out_img = Image.fromarray(np.zeros((img.size[1],img.size[0],4),dtype='uint8'))
     x, y, w, h = bbox
     num_line = 1
     min_column = 2
@@ -397,42 +436,61 @@ def render_table(args, img, bbox, font_text, font_title, fontsize, padding=5):
     para = {'component':'table','cells': cells, 'bbox':(int(bbox[0]), int(bbox[1]), int(bbox[0])+math.ceil(bbox[2]),int(bbox[1])+math.ceil(bbox[3])), 'texts':texts}
     return out_img, para, words, texts
 
-def render_title(args, img, bbox, font, font_title, fontsize):
+def render_title(args, img, bbox, font, font_title, fontsize, title_only= False):
     x,y,w,h = bbox
     paras = []
     out_img = img.copy()
     tat = args.tab_at_start
     args.tab_at_start = False
-    new_fs = fontsize + int(np.random.choice([*range(1,5),min(10,int(h/(1+args.spacing)))]))
+    new_fs = fontsize
+    if not title_only:
+        new_fs = int(fontsize + np.random.choice([*range(5,15),18,20]))
     font_title = get_font(args, new_fs,mixed=True)
     color = args.text_color
+    num_line = np.random.randint(1,4)
+    H = num_line*(1 + args.spacing)*new_fs - args.spacing
+    if (not title_only) and num_line==1:
+        W = w*(0.3+np.random.rand()*0.7)
+    else: 
+        W = w
     if np.random.rand() < 0.2:
         args.text_color = (*np.random.randint(0,88,3).tolist(),255)
-    if np.random.rand() < 0.5:
-        out_img, para, word, text = fill_text(args, out_img,(x,y,w*(0.3+np.random.rand()*0.7),new_fs),font_title,font_title,new_fs, title=True)
+    if np.random.rand() < 0.5 or title_only:
+        space = args.spacing 
+        args.spacing = 4/new_fs
+        H = num_line*(1 + args.spacing)*new_fs - args.spacing
+        out_img, para, word, text = fill_text(args, out_img, (x,y,W,H),font_title,font_title,new_fs, render_type='paragraph', title=True)
+        args.spacing = space
     else:
-        width = w*(0.3+np.random.rand()*0.7)
-        out_img, para, word, text = fill_text(args, out_img,(x+(w-width)/2,y,width,new_fs),font_title,font_title,new_fs, title=True)
+        space = args.spacing
+        H = num_line*(1 + args.spacing)*new_fs - args.spacing
+        args.spacing = 4/new_fs
+        if num_line == 1:
+            W = w*(0.3+np.random.rand()*0.7)
+        else: W = w
+        out_img, para, word, text = fill_text(args, out_img, (x+(w-W)/2,y,W,H),font_title,font_title,new_fs,render_type='paragraph', title=True)
+        args.spacing = space
     args.text_color = color
     para['component'] = 'title'
     paras.append(para)
     words = word
     texts = text
-    y += (1 + args.spacing + np.random.rand())*new_fs
-    args.tab_at_start = tat
-    out_img, para, word, text = fill_text(args, out_img, (x,y,w,bbox[1]+h-y),font,font_title,fontsize, render_type='paragraph')
-    paras.append(para)
-    words.extend(word)
-    texts.extend(text)
+    if not title_only:
+        y += (1 + args.spacing + 1/num_line*np.random.rand())*new_fs*num_line
+        args.tab_at_start = tat
+        out_img, para, word, text = fill_text(args, out_img, (x,y,w,bbox[1]+h-y),font,font_title,fontsize, render_type='paragraph')
+        paras.append(para)
+        words.extend(word)
+        texts.extend(text)
     return out_img, paras, words, texts
 
 def render_list(args, img, bbox, font, font_title, fontsize):
-    num_line = num_line = (bbox[3]+args.spacing)/((1+args.spacing)*fontsize)
+    num_line = (bbox[3]+args.spacing)/((1+args.spacing)*fontsize)
     num_line = int(num_line)
 
 def render_formula(args, img, bbox, font, font_title, fontsize):
     padding = 10
-    out_img = np.array(img)
+    out_img = Image.new("RGBA", img.size)
     formula = get_img(args.formula_path,1.0)
     w, h = formula.size
 
@@ -451,21 +509,28 @@ def render_formula(args, img, bbox, font, font_title, fontsize):
     formula[:,:,:3] += 1
     formula[:,:,:3] *= np.uint8(args.text_color[:3])
     formula[:,:,3] *= args.text_color[3]/255
-
-    out_img[y:y+h,x:x+w] += (formula).astype('uint8')
-    out_img = Image.fromarray(out_img)
+    formula = Image.fromarray(formula.astype('uint8'))
+    fg_img_trans = Image.new("RGBA",out_img.size)
+    fg_img_trans.paste(formula,(x,y), mask=formula.convert("RGBA"))
+    out_img = Image.blend(out_img,fg_img_trans,1.0)
+    
     box = (bbox[0],bbox[1],bbox[2],y-bbox[1]-padding)
     if box[3] > fontsize*1.1:
-        out_img, p, _, _ = fill_text(args, out_img, box, font,font_title,fontsize)
+        img, p, _, _ = fill_text(args, out_img, box, font,font_title,fontsize,render_type='paragraph')
+        out_img = Image.alpha_composite(out_img, img)
         para.append(p)
     para.append({'component':'formula','bbox':(x,y,x+w,y+h)})
     args.tab_at_start = False
     box = (bbox[0],y+h+padding,bbox[2],bbox[1]+bbox[3]-y-h-padding)
     if box[3] > fontsize*1.1:
-        out_img, p, _, _ = fill_text(args, out_img, box, font,font_title,fontsize)
+        img, p, _, _ = fill_text(args, out_img, box, font,font_title,fontsize, render_type='paragraph')
+        out_img = Image.alpha_composite(out_img, img)
         para.append(p)
     args.tab_at_start = True
     return out_img,para,[],[]
+
+
+
 if __name__ == '__main__':
     from config import Config
     img = get_img('assets').convert("RGBA").resize((1500,2000))

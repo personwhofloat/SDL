@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from .font_handler import get_font, get_font_size
-from .text_render import render_text_line, render_paragraph, fill_text, render_table
+from ._text_render import render_text_line, render_paragraph, fill_text, render_table
 import os,sys
 from .tbd import error
 

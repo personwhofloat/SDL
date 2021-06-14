@@ -17,11 +17,11 @@ from .tbd import info
 
 def get_font_size(fs_range):
     '''
-    get a random fontsize from the given range
+    get a np.random fontsize from the given range
     input:
         fs_range: range of the fontsize that we're gonna pick from
     output:
-        a random fontsize
+        a np.random fontsize
     '''
     return np.random.randint(*fs_range)
 
